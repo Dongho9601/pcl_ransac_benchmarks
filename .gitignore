@@ -33,3 +33,5 @@
 
 build/
 README.md
+*.png
+.vscode/

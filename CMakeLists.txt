@@ -19,8 +19,9 @@ find_package( PCL REQUIRED )
 include_directories( ${PCL_INCLUDE_DIRS} )
 
 # Add excutable
-cuda_compile(CUDA_OBJECT src/ransac.cu)
-set( SOURCES src/main.cpp src/utils.cpp )
+# cuda_compile(CUDA_OBJECT src/ransac.cu)
+file( GLOB SOURCES src/*.cpp )
+file( GLOB CUDA_OBJECT src/*.cu )
 add_executable( ${PROJECT_NAME} ${SOURCES} ${CUDA_OBJECT})
 
 # Linking
