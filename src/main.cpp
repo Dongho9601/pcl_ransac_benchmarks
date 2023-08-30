@@ -4,7 +4,7 @@ int main(int argc, char* argv[])
 {
     if (argc != 5) {
         cerr << "Usage: [dimension] [application] [path/to/pcd] [CPU/GPU]" << endl;
-        cerr << "2D applications: line, plane, circle" << endl;
+        cerr << "2D applications: line, circle" << endl;
         cerr << "3D applications: line, plane, circle, cylinder, sphere" << endl;
         return 0;
     }
@@ -34,11 +34,11 @@ int main(int argc, char* argv[])
         std::cout << "2D point cloud" << std::endl;
 
         timer.start();
-        Fitter2D lineFitter(application, device);
-        lineFitter.run(cloud);
+        Fitter2D fitter(application, device);
+        fitter.run(cloud);
         std::cout << "Execution time: " << timer.stop() << std::endl;
 
-        cv::Mat image = lineFitter.draw2DImage(cloud);
+        cv::Mat image = fitter.draw2DImage(cloud);
         cv::imwrite("LineFitterImage.png", image);
 
     } else {

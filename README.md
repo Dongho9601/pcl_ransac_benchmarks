@@ -5,26 +5,23 @@
 - [x] 2D.pcd read and print
 - [x] 2D line fitting
 - [x] organize the structure and build timer
-- [ ] 2D line fitting with CUDA
-
-- [ ] 3D.pcd read and print
-- [ ] 3D line fitting
-- [ ] 3D line fitting with CUDA
-
-- [ ] 2D plane fitting
 - [ ] 2D circle fitting
-- [ ] 2D plane fitting with CUDA
+
+- [ ] 2D line fitting with CUDA
 - [ ] 2D circle fitting with CUDA
 
+- [ ] 3D read and print
+- [ ] 3D line fitting
 - [ ] 3D plane fitting
 - [ ] 3D circle fitting
 - [ ] 3D sphere fitting
 - [ ] 3D cylinder fitting
+
+- [ ] 3D line fitting with CUDA
 - [ ] 3D plane fitting with CUDA
 - [ ] 3D circle fitting with CUDA
 - [ ] 3D sphere fitting with CUDA
 - [ ] 3D cylinder fitting with CUDA
-
 
 ### Benchmarks
 

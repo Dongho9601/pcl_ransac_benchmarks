@@ -1,10 +1,13 @@
 #include "common.hpp"
+
 #include <pcl/filters/random_sample.h>
-#include <pcl/features/normal_3d.h>
 #include <pcl/sample_consensus/sac_model_line.h>
+#include <pcl/sample_consensus/sac_model_circle.h>
 #include <pcl/sample_consensus/ransac.h>
 #include <pcl/filters/extract_indices.h>
-// #include </__w/1/s/cuda/sample_consensus/include/pcl/cuda/sample_consensus/sac_model.h>
+
+#include <pcl/cuda/sample_consensus/sac_model.h>
+#include <pcl/cuda/sample_consensus/ransac.h>
 
 /* Pseudocode of RANSAC
 https://en.wikipedia.org/wiki/Random_sample_consensus
@@ -60,13 +63,6 @@ class Fitter2D {
         Fitter2D(const std::string app_, const std::string device_): application(app_), device(device_) {
             if (application == "line") {
                 numRequiredPoints = 2;
-                maxIterations = 1000;
-                threshold = 0.99;
-                delta = 0.006;
-                remainingPointsRatio = 1;
-
-            } else if (application == "plane") {
-                numRequiredPoints = 3;
 
             } else if (application == "circle") {
                 numRequiredPoints = 3;
@@ -83,21 +79,22 @@ class Fitter2D {
              bestModelCoefficients.push_back(bestModelCoefficients_);
         };
         cv::Mat draw2DImage(const PointCloudPtr& cloud,
-                            const float xStep = 0.008, const float yStep = 0.008, 
-                            const int defaultWidth = 500, const int defaultHeight = 500);
+                            const float step = 0.008,
+                            const int defaultWidth = 500, 
+                            const int defaultHeight = 500);
 
-        void lineFitterRun(PointCloudPtr& cloudCopy);
-        void lineFitterRunCUDA(PointCloudPtr& cloudCopy);
+        template <typename modelType> void runFitting(PointCloudPtr& cloudCopy, modelType& model);
+        template <typename modelType> void runFittingWithCUDA(PointCloudPtr& cloudCopy, modelType& model);
 
     private:
         const std::string application;
         const std::string device;
 
         int numRequiredPoints = 2;
-        int maxIterations = 100;
+        int maxIterations = 1000;
         float threshold = 0.99;
         float delta = 0.006;
-        float remainingPointsRatio = 0.8;
+        float remainingPointsRatio = 1;
 
-        vector<Eigen::VectorXf> bestModelCoefficients;
+        std::vector<Eigen::VectorXf> bestModelCoefficients;
 };
