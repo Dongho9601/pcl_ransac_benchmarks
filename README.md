@@ -5,7 +5,7 @@
 - [x] 2D.pcd read and print
 - [x] 2D line fitting
 - [x] organize the structure and build timer
-- [ ] 2D circle fitting
+- [x] 2D circle fitting
 
 - [ ] 2D line fitting with CUDA
 - [ ] 2D circle fitting with CUDA
