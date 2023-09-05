@@ -8,7 +8,8 @@
 - [x] 2D circle fitting
 
 - [x] 2D line fitting with CUDA
-- [ ] 2D circle fitting with CUDA
+- [x] 2D circle fitting with CUDA
+- [ ] make CUDA use shared memory
 
 - [ ] 3D read and print
 - [ ] 3D line fitting

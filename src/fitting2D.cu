@@ -10,12 +10,11 @@ void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int ma
 
     // model generation
     // the first point is the leader thread's warpIdx % pointsNum
-    // the second point is the leader thread's warpIdx % pointsNum + warpIdx / pointsNum
+    // the second point is the leader thread's warpIdx % pointsNum + warpIdx / pointsNum +1
     int firstPointIdx = warpIdx % pointsNum;
-    int secondPointIdx = warpIdx % pointsNum + warpIdx / pointsNum + 1;
-    if (secondPointIdx >= pointsNum) {
+    int secondPointIdx = firstPointIdx + warpIdx / pointsNum + 1;
+    if (secondPointIdx >= pointsNum)
         secondPointIdx -= pointsNum;
-    }
 
     float Ox = pointsArr[firstPointIdx * 2];
     float Oy = pointsArr[firstPointIdx * 2 + 1];
@@ -48,7 +47,45 @@ void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int ma
 
 __global__ 
 void circleFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int maxIterations, float delta) {
-    ;
+    int warpIdx = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
+    int laneIdx = (blockIdx.x * blockDim.x + threadIdx.x) % WARP_SIZE;
+
+    int firstPointIdx = warpIdx % pointsNum;
+    int secondPointIdx = firstPointIdx + warpIdx / pointsNum + 1;
+    if (secondPointIdx >= pointsNum)
+        secondPointIdx -= pointsNum;
+    int thridPointIdx = secondPointIdx + 1;
+    if (thridPointIdx >= pointsNum)
+        thridPointIdx -= pointsNum;
+
+    // calculate the center of the circle
+    float Ox = (pointsArr[firstPointIdx * 2] + pointsArr[secondPointIdx * 2] + pointsArr[thridPointIdx * 2]) / 3;
+    float Oy = (pointsArr[firstPointIdx * 2 + 1] + pointsArr[secondPointIdx * 2 + 1] + pointsArr[thridPointIdx * 2 + 1]) / 3;
+    float R = sqrt((pointsArr[firstPointIdx * 2] - Ox) * (pointsArr[firstPointIdx * 2] - Ox) + (pointsArr[firstPointIdx * 2 + 1] - Oy) * (pointsArr[firstPointIdx * 2 + 1] - Oy));
+
+    // each thread calculates the number of inliners and accumulates them at the end
+    int offset = pointsNum / WARP_SIZE;
+    int counter = 0;
+#pragma unroll
+    for (int i = 0; i < offset; i++) {
+        int pointIdx = laneIdx * offset + i;
+        float Qx = pointsArr[pointIdx * 2];
+        float Qy = pointsArr[pointIdx * 2 + 1];
+        float distance = abs(sqrt((Qx - Ox) * (Qx - Ox) + (Qy - Oy) * (Qy - Oy)) - R);
+        if (distance < delta) {
+            counter++;
+        }
+    }
+
+    // accumulate the inliner counts within a warp
+    for (int i = 16; i > 0; i /= 2)
+        counter += __shfl_down_sync(0xffffffff, counter, i);
+    
+    // write the inliner counts to the global memory
+    if (laneIdx == 0) {
+        inlinerCounts[warpIdx] = counter;
+    }
+
 }
 
 
@@ -110,6 +147,8 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         }
     }
 
+    std::cout << bestModelInlinerCount << std::endl;
+
     // print the coordinates of the best model
     if (m_application == "line") {
         int firstPointIdx = bestModelIdx % cloudCopy->points.size();
@@ -127,7 +166,22 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         getBestModelCoefficients(model_);
     }
     else if (m_application == "circle") {
-        ;
+        int firstPointIdx = bestModelIdx % cloudCopy->points.size();
+        int secondPointIdx = firstPointIdx + bestModelIdx / cloudCopy->points.size() + 1;
+        if (secondPointIdx >= cloudCopy->points.size()) {
+            secondPointIdx -= cloudCopy->points.size();
+        }
+        int thridPointIdx = secondPointIdx + 1;
+        if (thridPointIdx >= cloudCopy->points.size()) {
+            thridPointIdx -= cloudCopy->points.size();
+        }
+        float Ox = (pointsArr[firstPointIdx * 2] + pointsArr[secondPointIdx * 2] + pointsArr[thridPointIdx * 2]) / 3;
+        float Oy = (pointsArr[firstPointIdx * 2 + 1] + pointsArr[secondPointIdx * 2 + 1] + pointsArr[thridPointIdx * 2 + 1]) / 3;
+        float R = sqrt((pointsArr[firstPointIdx * 2] - Ox) * (pointsArr[firstPointIdx * 2] - Ox) + (pointsArr[firstPointIdx * 2 + 1] - Oy) * (pointsArr[firstPointIdx * 2 + 1] - Oy));
+
+        Eigen::VectorXf model_(3);
+        model_ << Ox, Oy, R;
+        getBestModelCoefficients(model_);
     }    
 
     // free the memory
