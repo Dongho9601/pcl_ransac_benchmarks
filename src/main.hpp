@@ -1,3 +1,3 @@
 #include "common.hpp"
-#include "Fitting2D.hpp"
+#include "fitting2D.hpp"
 #include "utils.hpp"

@@ -7,7 +7,7 @@
 - [x] organize the structure and build timer
 - [x] 2D circle fitting
 
-- [ ] 2D line fitting with CUDA
+- [x] 2D line fitting with CUDA
 - [ ] 2D circle fitting with CUDA
 
 - [ ] 3D read and print

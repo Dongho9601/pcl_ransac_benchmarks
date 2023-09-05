@@ -1,65 +1,58 @@
-#include "Fitting2D.hpp"
-
+#include "fitting2D.hpp"
 
 // do RANSAC algorithm until the remaining points are 
 // less than the number of points times remainingPointsRatio
 template <typename modelType>
 void Fitter2D::runFitting(PointCloudPtr& cloudCopy, modelType& model) {
     pcl::RandomSampleConsensus<PointCloudType> ransac(model);
-    ransac.setMaxIterations(maxIterations);
-    ransac.setProbability(threshold);
-    ransac.setDistanceThreshold(delta);
+    ransac.setMaxIterations(m_maxIterations);
+    ransac.setProbability(m_threshold);
+    ransac.setDistanceThreshold(m_delta);
     ransac.computeModel();
 
     Eigen::VectorXf modelCoefficients;
     ransac.getModelCoefficients(modelCoefficients);
     getBestModelCoefficients(modelCoefficients);
 
-    // pritnt the model coefficients
-    std::cout << "modelCoefficients: " << std::endl;
-    for (int i = 0; i < modelCoefficients.size(); i++) {
-        std::cout << modelCoefficients[i] << std::endl;
-    }
-
     // remove inliners
-    if (remainingPointsRatio == 1) return;
-    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    ransac.getInliers(inliers->indices);
-    pcl::ExtractIndices<PointCloudType> extract;
-    extract.setInputCloud(cloudCopy);
-    extract.setIndices(inliers);
-    extract.setNegative(true);
-    extract.filter(*cloudCopy);
+    // if (remainingPointsRatio == 1) return;
+    // pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    // ransac.getInliers(inliers->indices);
+    // pcl::ExtractIndices<PointCloudType> extract;
+    // extract.setInputCloud(cloudCopy);
+    // extract.setIndices(inliers);
+    // extract.setNegative(true);
+    // extract.filter(*cloudCopy);
 }
 
 void Fitter2D::run(const PointCloudPtr& cloud) {
     // copy the input cloud
     PointCloudPtr cloudCopy(new PointCloud);
-    pcl::copyPointCloud(*cloud, *cloudCopy);
+    if (m_remainingPointsRatio != 1)
+        pcl::copyPointCloud(*cloud, *cloudCopy);
+    else
+        cloudCopy = cloud;
 
-    while (cloudCopy->size() >= cloud->size() * remainingPointsRatio) {
-        if (application == "line" && device == "CPU") {
+    while (cloudCopy->size() >= cloud->size() * m_remainingPointsRatio) {
+        if (m_application == "line" && m_device == "CPU") {
             pcl::SampleConsensusModelLine<PointCloudType>::Ptr 
                 model(new pcl::SampleConsensusModelLine<PointCloudType>(cloudCopy));
             runFitting<pcl::SampleConsensusModelLine<PointCloudType>::Ptr>(cloudCopy, model);
-        
-        } else if (application == "line" && device == "GPU") {
-            ;
 
-        } else if (application == "circle" && device == "CPU") {
+        } else if (m_application == "circle" && m_device == "CPU") {
             pcl::SampleConsensusModelCircle2D<PointCloudType>::Ptr 
                 model(new pcl::SampleConsensusModelCircle2D<PointCloudType>(cloudCopy));
             runFitting<pcl::SampleConsensusModelCircle2D<PointCloudType>::Ptr>(cloudCopy, model);
         
-        } else if (application == "circle" && device == "GPU") {
-            ;
+        } else if (m_device == "GPU") {
+            runFittingWithCUDA(cloudCopy);
 
         } else {
             std::cerr << "Invalid application" << std::endl;
             abort();
         }
 
-        if (remainingPointsRatio == 1) break;
+        if (m_remainingPointsRatio == 1) break;
     }
 
 }
@@ -89,9 +82,9 @@ cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& inCloud,
         cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), -1, cv::LINE_AA);
     }
 
-    if (application == "line") {
+    if (m_application == "line") {
         // inliner(x,y) direction(x,y)
-        for (const auto& model : bestModelCoefficients) {
+        for (const auto& model : m_bestModelCoefficients) {
             float minT = std::abs((minP.x-model[0])/model[3]) > abs((minP.y-model[1])/model[4]) ?
                         (minP.x-model[0])/model[3] : (minP.y-model[1])/model[4];
             float maxT = std::abs((maxP.x-model[0])/model[3]) > abs((maxP.y-model[1])/model[4]) ?
@@ -103,9 +96,9 @@ cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& inCloud,
             cv::line(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
         }
 
-    } else if (application == "circle") {
+    } else if (m_application == "circle") {
         // origin(x,y) R
-        for (const auto& model : bestModelCoefficients) {
+        for (const auto& model : m_bestModelCoefficients) {
             float x1 = (model[0]-minP.x)/step;
             float y1 = (model[1]-minP.y)/step;
             float r = model[2]/step;
