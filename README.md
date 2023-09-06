@@ -9,7 +9,7 @@
 
 - [x] 2D line fitting with CUDA
 - [x] 2D circle fitting with CUDA
-- [ ] make CUDA use shared memory
+- [x] make CUDA use shared memory - slower than global memory
 
 - [ ] 3D read and print
 - [ ] 3D line fitting

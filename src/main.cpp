@@ -36,7 +36,7 @@ int main(int argc, char* argv[])
         timer.start();
         Fitter2D fitter(application, device);
         fitter.run(cloud);
-        std::cout << "Execution time: " << timer.stop() << std::endl;
+        std::cout << "Totoal execution time: " << timer.stop() << std::endl;
 
         cv::Mat image = fitter.draw2DImage(cloud);
         cv::imwrite("LineFitterImage.png", image);

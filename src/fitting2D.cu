@@ -4,9 +4,7 @@ __global__
 void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int maxIterations, float delta) {
     // warps are models, so threads search the points divided by 32
     int warpIdx = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
-    int laneIdx = (blockIdx.x * blockDim.x + threadIdx.x) % WARP_SIZE;
-
-    // TODO: use shared memory
+    int laneIdx = threadIdx.x % WARP_SIZE;
 
     // model generation
     // the first point is the leader thread's warpIdx % pointsNum
@@ -22,11 +20,11 @@ void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int ma
     float Ry = pointsArr[secondPointIdx * 2 + 1] - Oy;
 
     // each thread calculates the number of inliners and accumulates them at the end
-    int offset = pointsNum / WARP_SIZE;
     int counter = 0;
 #pragma unroll
-    for (int i = 0; i < offset; i++) {
-        int pointIdx = laneIdx * offset + i;
+    for (int i = 0; i < pointsNum / WARP_SIZE + 1; i++) {
+        int pointIdx = i * pointsNum / WARP_SIZE + laneIdx ;
+        if (pointIdx >= pointsNum) break;
         float Qx = pointsArr[pointIdx * 2];
         float Qy = pointsArr[pointIdx * 2 + 1];
         float distance = abs(Rx * (Qy - Oy) - Ry * (Qx - Ox)) / sqrt(Rx * Rx + Ry * Ry);
@@ -64,11 +62,11 @@ void circleFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int 
     float R = sqrt((pointsArr[firstPointIdx * 2] - Ox) * (pointsArr[firstPointIdx * 2] - Ox) + (pointsArr[firstPointIdx * 2 + 1] - Oy) * (pointsArr[firstPointIdx * 2 + 1] - Oy));
 
     // each thread calculates the number of inliners and accumulates them at the end
-    int offset = pointsNum / WARP_SIZE;
     int counter = 0;
 #pragma unroll
-    for (int i = 0; i < offset; i++) {
-        int pointIdx = laneIdx * offset + i;
+    for (int i = 0; i < pointsNum / WARP_SIZE + 1; i++) {
+        int pointIdx = i * pointsNum / WARP_SIZE + laneIdx ;
+        if (pointIdx >= pointsNum) break;
         float Qx = pointsArr[pointIdx * 2];
         float Qy = pointsArr[pointIdx * 2 + 1];
         float distance = abs(sqrt((Qx - Ox) * (Qx - Ox) + (Qy - Oy) * (Qy - Oy)) - R);
@@ -106,6 +104,10 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         std::swap (pointsArr[i+1], pointsArr[d(g)+1]);
     }
 
+    Timer timer;
+    timer.clear();
+    timer.start();
+
     // upload the pointsArr to GPUs
     float* pointsArr_d;
     cudaMalloc((void**)&pointsArr_d, cloudCopy->points.size() * 2 * sizeof(float));
@@ -116,6 +118,8 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
     int* inlinerCounts_d;
     cudaMalloc((void**)&inlinerCounts_d, m_maxIterations * sizeof(int));
     cudaMemset(inlinerCounts_d, 0, m_maxIterations * sizeof(int));
+
+    std::cout << "GPU malloc time: " << timer.stop() << std::endl;
 
     // warp numbers are model numbers
     // thread block size is 256, fixed = 8 warps
@@ -147,7 +151,9 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         }
     }
 
-    std::cout << bestModelInlinerCount << std::endl;
+    // print the best model
+    // std::cout << "best model: " << bestModelIdx << std::endl;
+    // std::cout << "best model inliner count: " << bestModelInlinerCount << std::endl;
 
     // print the coordinates of the best model
     if (m_application == "line") {
