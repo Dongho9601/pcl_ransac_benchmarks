@@ -3,7 +3,10 @@
 
 #include <pcl/filters/random_sample.h>
 #include <pcl/sample_consensus/sac_model_line.h>
-// #include <pcl/sample_consensus/sac_model_circle.h>
+#include <pcl/sample_consensus/sac_model_plane.h>
+#include <pcl/sample_consensus/sac_model_circle3d.h>
+#include <pcl/sample_consensus/sac_model_sphere.h>
+#include <pcl/sample_consensus/sac_model_cylinder.h>
 #include <pcl/sample_consensus/ransac.h>
 #include <pcl/filters/extract_indices.h>
 #include <pcl/filters/random_sample.h>

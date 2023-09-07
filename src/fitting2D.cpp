@@ -89,7 +89,7 @@ cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& cloud,
             float y1 = (model[1]-diagonal*model[4]-minP.y)/step;
             float x2 = (model[0]+diagonal*model[3]-minP.x)/step;
             float y2 = (model[1]+diagonal*model[4]-minP.y)/step;
-            cv::line(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+            cv::line(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
         }
 
     } else if (m_application == "circle") {
@@ -98,7 +98,7 @@ cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& cloud,
             float x1 = (model[0]-minP.x)/step;
             float y1 = (model[1]-minP.y)/step;
             float r = model[2]/step;
-            cv::circle(image, cv::Point(x1, y1), r, cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+            cv::circle(image, cv::Point(x1, y1), r, cv::Scalar(0, 0, 255), 1, cv::LINE_AA);
         }
 
     } else {

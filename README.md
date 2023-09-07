@@ -15,10 +15,15 @@
 - [x] 3D project to 2D
 
 - [x] 3D line fitting
-- [ ] 3D plane fitting
+- [x] 3D line draw
+- [x] 3D plane fitting
+- [x] 3D plane draw
 - [ ] 3D circle fitting
+- [ ] 3D circle draw
 - [ ] 3D sphere fitting
+- [ ] 3D sphere draw
 - [ ] 3D cylinder fitting
+- [ ] 3D cylinder draw
 
 - [ ] 3D line fitting with CUDA
 - [ ] 3D plane fitting with CUDA

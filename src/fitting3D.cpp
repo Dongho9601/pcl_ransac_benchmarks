@@ -38,16 +38,24 @@ void Fitter3D::run(const PointCloudPtr& cloud) {
             runFitting<pcl::SampleConsensusModelLine<PointCloudType>::Ptr>(cloudCopy, model);
 
         } else if (m_application == "plane" && m_device == "CPU") {
-            ;
+            pcl::SampleConsensusModelPlane<PointCloudType>::Ptr 
+                model(new pcl::SampleConsensusModelPlane<PointCloudType>(cloudCopy));
+            runFitting<pcl::SampleConsensusModelPlane<PointCloudType>::Ptr>(cloudCopy, model);
 
         } else if (m_application == "circle" && m_device == "CPU") {
-            ;
+            pcl::SampleConsensusModelCircle3D<PointCloudType>::Ptr 
+                model(new pcl::SampleConsensusModelCircle3D<PointCloudType>(cloudCopy));
+            runFitting<pcl::SampleConsensusModelCircle3D<PointCloudType>::Ptr>(cloudCopy, model);
 
         } else if (m_application == "sphere" && m_device == "CPU") {
-            ;
+            pcl::SampleConsensusModelSphere<PointCloudType>::Ptr 
+                model(new pcl::SampleConsensusModelSphere<PointCloudType>(cloudCopy));
+            runFitting<pcl::SampleConsensusModelSphere<PointCloudType>::Ptr>(cloudCopy, model);
 
         } else if (m_application == "cylinder" && m_device == "CPU") {
-            ;
+            pcl::SampleConsensusModelCylinder<PointCloudType, pcl::Normal>::Ptr 
+                model(new pcl::SampleConsensusModelCylinder<PointCloudType, pcl::Normal>(cloudCopy));
+            runFitting<pcl::SampleConsensusModelCylinder<PointCloudType, pcl::Normal>::Ptr>(cloudCopy, model);
 
         } else if (m_device == "GPU") {
             runFittingWithCUDA(cloudCopy);
@@ -62,14 +70,16 @@ void Fitter3D::run(const PointCloudPtr& cloud) {
 
 }
 
+float projection(float x, float y) {return x - y / 1.414f;}
+
 cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
                               const float step,
                               const int defaultWidth, 
                               const int defaultHeight)
 {
-    cv::Scalar bgColor = cv::Scalar(255, 255, 255);
+    cv::Scalar bgColor = cv::Scalar(255, 255, 255, 255);
     if (cloud->size() < 2) {
-        return cv::Mat(defaultHeight, defaultWidth, CV_8UC3, bgColor);
+        return cv::Mat(defaultHeight, defaultWidth, CV_8UC4, bgColor);
     }
 
     // project the point cloud to the plane, x+y+z=2
@@ -78,12 +88,13 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
     float min_u = 1000.0f, min_v = 1000.0f;
     float max_u = -1000.0f, max_v = -1000.0f;
     for (const auto& point : cloud->points) {
-        float u = point.y - point.x / 1.414f;
-        float v = point.z - point.x / 1.414f;
+        float u = projection(point.y, point.x);
+        float v = projection(point.z, point.x);
         if (u < min_u) min_u = u;
         if (u > max_u) max_u = u;
         if (v < min_v) min_v = v;
         if (v > max_v) max_v = v;
+        // std::cout << "x: " << point.x << " y: " << point.y << " z: " << point.z << std::endl;
         points.push_back(cv::Point2f(u, v));
     }
     
@@ -91,18 +102,12 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
     int height = (max_v - min_v) / step;
     int diagonal = std::sqrt(width * width + height * height);
 
-    cv::Mat image(height, width, CV_8UC3, bgColor);
+    cv::Mat image(height, width, CV_8UC4, bgColor);
     
     // draw the x, y, and z axis
-    cv::line(image, cv::Point(0, height - 1), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64), 1, cv::LINE_AA);
-    cv::line(image, cv::Point((width - 1)/3, 0), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64), 1, cv::LINE_AA);
-    cv::line(image, cv::Point(width - 1, 2*(height - 1)/3), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64), 1, cv::LINE_AA);
-
-    for (const auto& point : points) {
-        int x = (point.x - min_u) / step;
-        int y = (point.y - min_v) / step;
-        cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
-    }
+    cv::line(image, cv::Point(0, height - 1), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    cv::line(image, cv::Point((width - 1)/3, 0), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    cv::line(image, cv::Point(width - 1, 2*(height - 1)/3), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
 
     if (m_application == "line") {
         for (const auto& model : m_bestModelCoefficients) {
@@ -110,24 +115,58 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
             float x1 = (model[0]-model[3]*diagonal);
             float y1 = (model[1]-model[4]*diagonal);
             float z1 = (model[2]-model[5]*diagonal);
-            y1 -= x1 / 1.414f + min_u;
-            z1 -= x1 / 1.414f + min_v;
+            y1 = projection(y1, x1) - min_u;
+            z1 = projection(z1, x1) - min_v;
             // max point
             float x2 = (model[0]+model[3]*diagonal);
             float y2 = (model[1]+model[4]*diagonal);
             float z2 = (model[2]+model[5]*diagonal);
-            y2 -= x2 / 1.414f + min_u;
-            z2 -= x2 / 1.414f + min_v;
+            y2 = projection(y2, x2) - min_u;
+            z2 = projection(z2, x2) - min_v;
             // projection
-            cv::line(image, cv::Point( y1/step, z1/step ), cv::Point( y2/step, z2/step ), cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+            cv::line(image, cv::Point( y1/step, z1/step ), cv::Point( y2/step, z2/step ), cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
         }
     } else if (m_application == "plane") {
+        for (const auto& model : m_bestModelCoefficients) {
+            // top bottom left right
+            cv::Point2f p1(0,1000.0f), p2(0,-1000.0f) , p3(1000.0f,0), p4(-1000.0f,0);
+            for (const auto& point : cloud->points) {
+                if (model[0]*point.x + model[1]*point.y + model[2]*point.z + model[3] > m_delta) continue;
+                float u = projection(point.y, point.x);
+                float v = projection(point.z, point.x);
+                if (v < p1.y) p1 = cv::Point2f(u, v); 
+                if (v > p2.y) p2 = cv::Point2f(u, v);
+                if (u < p3.x) p3 = cv::Point2f(u, v);
+                if (u > p4.x) p4 = cv::Point2f(u, v);
+            }
+
+            std::vector<cv::Point> four_points;
+            four_points.push_back(cv::Point2f( (p1.x-min_u)/step, (p1.y-min_v)/step ));
+            four_points.push_back(cv::Point2f( (p3.x-min_u)/step, (p3.y-min_v)/step ));
+            four_points.push_back(cv::Point2f( (p2.x-min_u)/step, (p2.y-min_v)/step ));
+            four_points.push_back(cv::Point2f( (p4.x-min_u)/step, (p4.y-min_v)/step ));
+            
+            // draw a filled polygon in the middle of the image with the color of read with 50% opacity
+            cv::fillConvexPoly(image, four_points, cv::Scalar(0, 0, 255, 255), cv::LINE_AA);
+        }
+
     } else if (m_application == "circle") {
+        std::cout << "Here is some bug..." << std::endl;
+
     } else if (m_application == "sphere") {
+
     } else if (m_application == "cylinder") {
+        std::cout << "Here is some bug..." << std::endl;
+
     } else {
         std::cerr << "Invalid application" << std::endl;
         abort();
+    }
+
+    for (const auto& point : points) {
+        int x = (point.x - min_u) / step;
+        int y = (point.y - min_v) / step;
+        cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
     }
 
     return image;
