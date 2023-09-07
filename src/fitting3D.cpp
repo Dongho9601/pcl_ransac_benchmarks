@@ -2,25 +2,25 @@
 
 template <typename modelType>
 void Fitter3D::runFitting(PointCloudPtr& cloudCopy, modelType& model) {
-    // pcl::RandomSampleConsensus<PointCloudType> ransac(model);
-    // ransac.setMaxIterations(m_maxIterations);
-    // ransac.setProbability(m_threshold);
-    // ransac.setDistanceThreshold(m_delta);
-    // ransac.computeModel();
+    pcl::RandomSampleConsensus<PointCloudType> ransac(model);
+    ransac.setMaxIterations(m_maxIterations);
+    ransac.setProbability(m_threshold);
+    ransac.setDistanceThreshold(m_delta);
+    ransac.computeModel();
 
-    // Eigen::VectorXf modelCoefficients;
-    // ransac.getModelCoefficients(modelCoefficients);
-    // getBestModelCoefficients(modelCoefficients);
+    Eigen::VectorXf modelCoefficients;
+    ransac.getModelCoefficients(modelCoefficients);
+    getBestModelCoefficients(modelCoefficients);
 
-    // // remove inliners
-    // if (m_remainingPointsRatio == 1) return;
-    // pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    // ransac.getInliers(inliers->indices);
-    // pcl::ExtractIndices<PointCloudType> extract;
-    // extract.setInputCloud(cloudCopy);
-    // extract.setIndices(inliers);
-    // extract.setNegative(true);
-    // extract.filter(*cloudCopy);
+    // remove inliners
+    if (m_remainingPointsRatio == 1) return;
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    ransac.getInliers(inliers->indices);
+    pcl::ExtractIndices<PointCloudType> extract;
+    extract.setInputCloud(cloudCopy);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*cloudCopy);
 }
 
 void Fitter3D::run(const PointCloudPtr& cloud) {
@@ -33,10 +33,9 @@ void Fitter3D::run(const PointCloudPtr& cloud) {
 
     while (cloudCopy->size() >= cloud->size() * m_remainingPointsRatio) {
         if (m_application == "line" && m_device == "CPU") {
-            // pcl::SampleConsensusModelLine<PointCloudType>::Ptr 
-            //     model(new pcl::SampleConsensusModelLine<PointCloudType>(cloudCopy));
-            // runFitting<pcl::SampleConsensusModelLine<PointCloudType>::Ptr>(cloudCopy, model);
-            ;
+            pcl::SampleConsensusModelLine<PointCloudType>::Ptr 
+                model(new pcl::SampleConsensusModelLine<PointCloudType>(cloudCopy));
+            runFitting<pcl::SampleConsensusModelLine<PointCloudType>::Ptr>(cloudCopy, model);
 
         } else if (m_application == "plane" && m_device == "CPU") {
             ;
@@ -90,6 +89,7 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
     
     int width = (max_u - min_u) / step;
     int height = (max_v - min_v) / step;
+    int diagonal = std::sqrt(width * width + height * height);
 
     cv::Mat image(height, width, CV_8UC3, bgColor);
     
@@ -102,6 +102,32 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
         int x = (point.x - min_u) / step;
         int y = (point.y - min_v) / step;
         cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
+    }
+
+    if (m_application == "line") {
+        for (const auto& model : m_bestModelCoefficients) {
+            // min point
+            float x1 = (model[0]-model[3]*diagonal);
+            float y1 = (model[1]-model[4]*diagonal);
+            float z1 = (model[2]-model[5]*diagonal);
+            y1 -= x1 / 1.414f + min_u;
+            z1 -= x1 / 1.414f + min_v;
+            // max point
+            float x2 = (model[0]+model[3]*diagonal);
+            float y2 = (model[1]+model[4]*diagonal);
+            float z2 = (model[2]+model[5]*diagonal);
+            y2 -= x2 / 1.414f + min_u;
+            z2 -= x2 / 1.414f + min_v;
+            // projection
+            cv::line(image, cv::Point( y1/step, z1/step ), cv::Point( y2/step, z2/step ), cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
+        }
+    } else if (m_application == "plane") {
+    } else if (m_application == "circle") {
+    } else if (m_application == "sphere") {
+    } else if (m_application == "cylinder") {
+    } else {
+        std::cerr << "Invalid application" << std::endl;
+        abort();
     }
 
     return image;

@@ -46,7 +46,7 @@ int main(int argc, char* argv[])
 
         timer.start();
         Fitter3D fitter(application, device);
-        // fitter.run(cloud);
+        fitter.run(cloud);
         std::cout << "Totoal execution time: " << timer.stop() << std::endl;
 
         cv::Mat image = fitter.draw3DImage(cloud);

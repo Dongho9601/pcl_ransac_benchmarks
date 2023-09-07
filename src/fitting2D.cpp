@@ -72,6 +72,7 @@ cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& cloud,
 
     int height = (maxP.y - minP.y) / step;
     int width = (maxP.x - minP.x) / step;
+    int diagonal = std::sqrt(height * height + width * width);
 
     cv::Mat image(height, width, CV_8UC3, bgColor);
 
@@ -84,14 +85,10 @@ cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& cloud,
     if (m_application == "line") {
         // inliner(x,y) direction(x,y)
         for (const auto& model : m_bestModelCoefficients) {
-            float minT = std::abs((minP.x-model[0])/model[3]) > abs((minP.y-model[1])/model[4]) ?
-                        (minP.x-model[0])/model[3] : (minP.y-model[1])/model[4];
-            float maxT = std::abs((maxP.x-model[0])/model[3]) > abs((maxP.y-model[1])/model[4]) ?
-                        (maxP.x-model[0])/model[3] : (maxP.y-model[1])/model[4] ;
-            float x1 = (model[0]+minT*model[3]-minP.x)/step;
-            float y1 = (model[1]+minT*model[4]-minP.y)/step;
-            float x2 = (model[0]+maxT*model[3]-minP.x)/step;
-            float y2 = (model[1]+maxT*model[4]-minP.y)/step;
+            float x1 = (model[0]-diagonal*model[3]-minP.x)/step;
+            float y1 = (model[1]-diagonal*model[4]-minP.y)/step;
+            float x2 = (model[0]+diagonal*model[3]-minP.x)/step;
+            float y2 = (model[1]+diagonal*model[4]-minP.y)/step;
             cv::line(image, cv::Point(x1, y1), cv::Point(x2, y2), cv::Scalar(255, 0, 0), 1, cv::LINE_AA);
         }
 

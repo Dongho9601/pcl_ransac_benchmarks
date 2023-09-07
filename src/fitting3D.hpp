@@ -1,6 +1,13 @@
 #include "common.hpp"
 #include <random>
 
+#include <pcl/filters/random_sample.h>
+#include <pcl/sample_consensus/sac_model_line.h>
+// #include <pcl/sample_consensus/sac_model_circle.h>
+#include <pcl/sample_consensus/ransac.h>
+#include <pcl/filters/extract_indices.h>
+#include <pcl/filters/random_sample.h>
+
 #define WARP_SIZE 32
 #define BLOCK_SIZE 32 * 8
 #define WARP_PER_BLOCK 8

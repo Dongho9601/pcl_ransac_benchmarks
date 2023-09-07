@@ -14,7 +14,7 @@
 - [x] 3D read
 - [x] 3D project to 2D
 
-- [ ] 3D line fitting
+- [x] 3D line fitting
 - [ ] 3D plane fitting
 - [ ] 3D circle fitting
 - [ ] 3D sphere fitting
