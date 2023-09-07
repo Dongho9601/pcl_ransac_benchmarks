@@ -11,7 +11,9 @@
 - [x] 2D circle fitting with CUDA
 - [x] make CUDA use shared memory - slower than global memory
 
-- [ ] 3D read and print
+- [x] 3D read
+- [x] 3D project to 2D
+
 - [ ] 3D line fitting
 - [ ] 3D plane fitting
 - [ ] 3D circle fitting
@@ -23,6 +25,8 @@
 - [ ] 3D circle fitting with CUDA
 - [ ] 3D sphere fitting with CUDA
 - [ ] 3D cylinder fitting with CUDA
+
+- [ ] Make the 3D image more visible
 
 ### Benchmarks
 

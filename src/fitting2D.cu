@@ -86,7 +86,6 @@ void circleFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int 
 
 }
 
-
 void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
     // point to array
     float* pointsArr = new float[cloudCopy->points.size() * 2];

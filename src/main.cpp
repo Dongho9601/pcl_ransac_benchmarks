@@ -31,7 +31,7 @@ int main(int argc, char* argv[])
     timer.clear();
 
     if (dimension == 2) {
-        std::cout << "2D point cloud" << std::endl;
+        std::cout << "# " << application << "fitting on 2D point cloud" << std::endl;
 
         timer.start();
         Fitter2D fitter(application, device);
@@ -39,11 +39,18 @@ int main(int argc, char* argv[])
         std::cout << "Totoal execution time: " << timer.stop() << std::endl;
 
         cv::Mat image = fitter.draw2DImage(cloud);
-        cv::imwrite("LineFitterImage.png", image);
+        cv::imwrite("2DFitterImage.png", image);
 
     } else {
-        std::cout << "3D" << std::endl;
+        std::cout << "# " << application << " fitting on 3D point cloud" << std::endl;
 
+        timer.start();
+        Fitter3D fitter(application, device);
+        // fitter.run(cloud);
+        std::cout << "Totoal execution time: " << timer.stop() << std::endl;
+
+        cv::Mat image = fitter.draw3DImage(cloud);
+        cv::imwrite("3DFitterImage.png", image);
     }
 
     return 0;

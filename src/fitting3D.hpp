@@ -1,39 +1,35 @@
 #include "common.hpp"
 #include <random>
 
-#include <pcl/filters/random_sample.h>
-#include <pcl/sample_consensus/sac_model_line.h>
-#include <pcl/sample_consensus/sac_model_circle.h>
-#include <pcl/sample_consensus/ransac.h>
-#include <pcl/filters/extract_indices.h>
-#include <pcl/filters/random_sample.h>
-
 #define WARP_SIZE 32
 #define BLOCK_SIZE 32 * 8
 #define WARP_PER_BLOCK 8
 
-class Fitter2D {
+class Fitter3D {
     public:
-        Fitter2D(){};
-        Fitter2D(const std::string app_, const std::string device_): m_application(app_), m_device(device_) {
+        Fitter3D(){};
+        Fitter3D(const std::string app_, const std::string device_): m_application(app_), m_device(device_) {
             if (m_application == "line") {
                 m_numRequiredPoints = 2;
 
-            } else if (m_application == "circle") {
+            } else if (m_application == "plane" || m_application == "circle" || m_application == "sphere") {
                 m_numRequiredPoints = 3;
+
+            } else if (m_application == "cylinder") {
+                m_numRequiredPoints = 5;
 
             } else {
                 std::cerr << "Invalid application" << std::endl;
                 abort();
             }
         };
-        ~Fitter2D(){};
+        ~Fitter3D(){};
 
         void run(const PointCloudPtr& cloud);
         void getBestModelCoefficients(Eigen::VectorXf& bestModelCoefficients_) {
              m_bestModelCoefficients.push_back(bestModelCoefficients_);
         };
-        cv::Mat draw2DImage(const PointCloudPtr& cloud,
+        cv::Mat draw3DImage(const PointCloudPtr& cloud,
                             const float step = 0.008,
                             const int defaultWidth = 500, 
                             const int defaultHeight = 500);

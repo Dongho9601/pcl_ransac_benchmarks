@@ -15,14 +15,14 @@ void Fitter2D::runFitting(PointCloudPtr& cloudCopy, modelType& model) {
     getBestModelCoefficients(modelCoefficients);
 
     // remove inliners
-    // if (remainingPointsRatio == 1) return;
-    // pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
-    // ransac.getInliers(inliers->indices);
-    // pcl::ExtractIndices<PointCloudType> extract;
-    // extract.setInputCloud(cloudCopy);
-    // extract.setIndices(inliers);
-    // extract.setNegative(true);
-    // extract.filter(*cloudCopy);
+    if (m_remainingPointsRatio == 1) return;
+    pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    ransac.getInliers(inliers->indices);
+    pcl::ExtractIndices<PointCloudType> extract;
+    extract.setInputCloud(cloudCopy);
+    extract.setIndices(inliers);
+    extract.setNegative(true);
+    extract.filter(*cloudCopy);
 }
 
 void Fitter2D::run(const PointCloudPtr& cloud) {
@@ -57,29 +57,28 @@ void Fitter2D::run(const PointCloudPtr& cloud) {
 
 }
 
-cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& inCloud,
+cv::Mat Fitter2D::draw2DImage(const PointCloudPtr& cloud,
                               const float step,
                               const int defaultWidth, 
                               const int defaultHeight)
 {
-    cv::Scalar bgColor = cv::Scalar(167, 167, 167);
-    if (inCloud->size() < 2) {
+    cv::Scalar bgColor = cv::Scalar(255, 255, 255);
+    if (cloud->size() < 2) {
         return cv::Mat(defaultHeight, defaultWidth, CV_8UC3, bgColor);
     }
 
     pcl::PointXYZ minP, maxP;
-    pcl::getMinMax3D<pcl::PointXYZ>(*inCloud, minP, maxP);
+    pcl::getMinMax3D<pcl::PointXYZ>(*cloud, minP, maxP);
 
     int height = (maxP.y - minP.y) / step;
     int width = (maxP.x - minP.x) / step;
 
     cv::Mat image(height, width, CV_8UC3, bgColor);
 
-    for (const auto& point : inCloud->points) {
+    for (const auto& point : cloud->points) {
         int x = (point.x - minP.x) / step;
         int y = (point.y - minP.y) / step;
-        image.ptr<cv::Vec3b>(y)[x] = cv::Vec3b(0, 0, 255);
-        cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 255), -1, cv::LINE_AA);
+        cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);
     }
 
     if (m_application == "line") {
