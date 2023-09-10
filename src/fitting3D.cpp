@@ -70,7 +70,7 @@ void Fitter3D::run(const PointCloudPtr& cloud) {
 
 }
 
-float projection(float x, float y) {return x - y / 1.414f;}
+float projection(float YorZ, float X) {return YorZ - X / 1.414f;}
 
 cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
                               const float step,
@@ -97,18 +97,16 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
         // std::cout << "x: " << point.x << " y: " << point.y << " z: " << point.z << std::endl;
         points.push_back(cv::Point2f(u, v));
     }
+    std::cout << "min_u: " << min_u/step << " max_u: " << max_u/step << std::endl;
+    std::cout << "min_v: " << min_v/step << " max_v: " << max_v/step << std::endl;
     
     int width = (max_u - min_u) / step;
     int height = (max_v - min_v) / step;
     int diagonal = std::sqrt(width * width + height * height);
 
     cv::Mat image(height, width, CV_8UC4, bgColor);
+    std::cout << "width: " << width << " height: " << height << std::endl;
     
-    // draw the x, y, and z axis
-    cv::line(image, cv::Point(0, height - 1), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
-    cv::line(image, cv::Point((width - 1)/3, 0), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
-    cv::line(image, cv::Point(width - 1, 2*(height - 1)/3), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
-
     if (m_application == "line") {
         for (const auto& model : m_bestModelCoefficients) {
             // min point
@@ -151,9 +149,36 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
         }
 
     } else if (m_application == "circle") {
-        std::cout << "Here is some bug..." << std::endl;
+        for (const auto& model : m_bestModelCoefficients) {
+            // origin(x,y,z) R normal(x,y,z)
+            float u = projection(model[1], model[0]);
+            float v = projection(model[2], model[0]);
+            float x1 = (u-min_u)/step;
+            float y1 = (v-min_v)/step;
+            float r = 1.414f * model[3]/step;
+            float rx = r * model[5] / sqrt(model[4]*model[4]+model[5]*model[5]);
+            float ry = r * model[6] / sqrt(model[4]*model[4]+model[6]*model[6]);
+            float rotation = 90 - atan(model[6]/model[5]) * 180 / PI;
+            // std::cout << model[0] << " " << model[1] << " " << model[2] << " " << model[3] << " " 
+            //           << model[4] << " " << model[5] << " " << model[6] << std::endl;
+            // std::cout << "x: " << x1 << " y: " << y1 << " r: " << r << std::endl;
+            // std::cout << "rx: " << rx << " ry: " << ry << " rotation: " << rotation << std::endl;
+            cv::ellipse(image, cv::Point(x1, y1), cv::Size(rx, ry), 
+                        rotation, 0, 360, cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
+        }
 
     } else if (m_application == "sphere") {
+        for (const auto& model : m_bestModelCoefficients) {
+            // origin(x,y,z) R
+            float u = projection(model[1], model[0]);
+            float v = projection(model[2], model[0]);
+            float x1 = (u-min_u)/step;
+            float y1 = (v-min_v)/step;
+            float r = 1.414f * model[3]/step;
+            std::cout << model[0] << " " << model[1] << " " << model[2] << " " << model[3] << std::endl;
+            std::cout << "x: " << x1 << " y: " << y1 << " r: " << r << std::endl;   
+            cv::circle(image, cv::Point(x1, y1), r, cv::Scalar(0, 0, 255, 255), -1, cv::LINE_AA);
+        }
 
     } else if (m_application == "cylinder") {
         std::cout << "Here is some bug..." << std::endl;
@@ -162,6 +187,11 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
         std::cerr << "Invalid application" << std::endl;
         abort();
     }
+
+    // draw the x, y, and z axis
+    cv::line(image, cv::Point(0, height - 1), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    cv::line(image, cv::Point((width - 1)/3, 0), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    cv::line(image, cv::Point(width - 1, 2*(height - 1)/3), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
 
     for (const auto& point : points) {
         int x = (point.x - min_u) / step;

@@ -18,10 +18,13 @@
 - [x] 3D line draw
 - [x] 3D plane fitting
 - [x] 3D plane draw
-- [ ] 3D circle fitting
-- [ ] 3D circle draw
-- [ ] 3D sphere fitting
-- [ ] 3D sphere draw
+- [x] 3D circle fitting
+- [x] 3D circle draw
+- [x] 3D sphere fitting
+- [x] 3D sphere draw
+
+- [ ] revisit the projection algorithm
+
 - [ ] 3D cylinder fitting
 - [ ] 3D cylinder draw
 
