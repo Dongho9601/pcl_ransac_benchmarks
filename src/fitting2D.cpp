@@ -14,10 +14,16 @@ void Fitter2D::runFitting(PointCloudPtr& cloudCopy, modelType& model) {
     ransac.getModelCoefficients(modelCoefficients);
     getBestModelCoefficients(modelCoefficients);
 
-    // remove inliners
-    if (m_remainingPointsRatio == 1) return;
+    // print the number of inliners
+    // HADO: for debugging
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     ransac.getInliers(inliers->indices);
+    std::cout << "inliners: " << inliers->indices.size() << std::endl;
+
+    // remove inliners
+    if (m_remainingPointsRatio == 1) return;
+    // pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    // ransac.getInliers(inliers->indices);
     pcl::ExtractIndices<PointCloudType> extract;
     extract.setInputCloud(cloudCopy);
     extract.setIndices(inliers);

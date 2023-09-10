@@ -70,7 +70,7 @@ void Fitter3D::run(const PointCloudPtr& cloud) {
 
 }
 
-float projection(float YorZ, float X) {return YorZ - X / 1.414f;}
+float projection(float YorZ, int coeff, float X) {return YorZ / X * coeff;}
 
 cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
                               const float step,
@@ -78,24 +78,22 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
                               const int defaultHeight)
 {
     cv::Scalar bgColor = cv::Scalar(255, 255, 255, 255);
-    if (cloud->size() < 2) {
+    if (cloud->size() < 2)
         return cv::Mat(defaultHeight, defaultWidth, CV_8UC4, bgColor);
-    }
 
     // project the point cloud to the plane, x+y+z=2
     // and find the min and max points
-    std::vector<cv::Point2f> points;
+    std::vector<cv::Point2f> projectedPoints;
     float min_u = 1000.0f, min_v = 1000.0f;
     float max_u = -1000.0f, max_v = -1000.0f;
     for (const auto& point : cloud->points) {
-        float u = projection(point.y, point.x);
-        float v = projection(point.z, point.x);
+        float u = point.x / point.z;
+        float v = point.y / point.z;
         if (u < min_u) min_u = u;
         if (u > max_u) max_u = u;
         if (v < min_v) min_v = v;
         if (v > max_v) max_v = v;
-        // std::cout << "x: " << point.x << " y: " << point.y << " z: " << point.z << std::endl;
-        points.push_back(cv::Point2f(u, v));
+        projectedPoints.push_back(cv::Point2f(u, v));
     }
     std::cout << "min_u: " << min_u/step << " max_u: " << max_u/step << std::endl;
     std::cout << "min_v: " << min_v/step << " max_v: " << max_v/step << std::endl;
@@ -109,29 +107,34 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
     
     if (m_application == "line") {
         for (const auto& model : m_bestModelCoefficients) {
+            float minT = (model[0]-model[2]*min_u) / (model[5]*min_u - model[3]);
+            float maxT = (model[0]-model[2]*max_u) / (model[5]*max_u - model[3]);
             // min point
-            float x1 = (model[0]-model[3]*diagonal);
-            float y1 = (model[1]-model[4]*diagonal);
-            float z1 = (model[2]-model[5]*diagonal);
-            y1 = projection(y1, x1) - min_u;
-            z1 = projection(z1, x1) - min_v;
+            float x1 = (model[0] + minT * model[3]);
+            float y1 = (model[1] + minT * model[4]);
+            float z1 = (model[2] + minT * model[5]);
+            x1 = (x1/z1 - min_u) / step;
+            y1 = (y1/z1 - min_v) / step;
             // max point
-            float x2 = (model[0]+model[3]*diagonal);
-            float y2 = (model[1]+model[4]*diagonal);
-            float z2 = (model[2]+model[5]*diagonal);
-            y2 = projection(y2, x2) - min_u;
-            z2 = projection(z2, x2) - min_v;
+            float x2 = (model[0]+ maxT * model[3]);
+            float y2 = (model[1]+ maxT * model[4]);
+            float z2 = (model[2]+ maxT * model[5]);
+            x2 = (x2/z2 - min_u) / step;
+            y2 = (y2/z2 - min_v) / step;
             // projection
-            cv::line(image, cv::Point( y1/step, z1/step ), cv::Point( y2/step, z2/step ), cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
+            std::cout << "x1: " << x1 << " y1: " << y1 << std::endl;
+            std::cout << "x2: " << x2 << " y2: " << y2 << std::endl;
+            cv::line(image, cv::Point( x1,y1 ), cv::Point( x2,y2 ), cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
         }
+
     } else if (m_application == "plane") {
         for (const auto& model : m_bestModelCoefficients) {
             // top bottom left right
             cv::Point2f p1(0,1000.0f), p2(0,-1000.0f) , p3(1000.0f,0), p4(-1000.0f,0);
             for (const auto& point : cloud->points) {
                 if (model[0]*point.x + model[1]*point.y + model[2]*point.z + model[3] > m_delta) continue;
-                float u = projection(point.y, point.x);
-                float v = projection(point.z, point.x);
+                float u = point.x / point.z;
+                float v = point.y / point.z;
                 if (v < p1.y) p1 = cv::Point2f(u, v); 
                 if (v > p2.y) p2 = cv::Point2f(u, v);
                 if (u < p3.x) p3 = cv::Point2f(u, v);
@@ -149,36 +152,36 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
         }
 
     } else if (m_application == "circle") {
-        for (const auto& model : m_bestModelCoefficients) {
-            // origin(x,y,z) R normal(x,y,z)
-            float u = projection(model[1], model[0]);
-            float v = projection(model[2], model[0]);
-            float x1 = (u-min_u)/step;
-            float y1 = (v-min_v)/step;
-            float r = 1.414f * model[3]/step;
-            float rx = r * model[5] / sqrt(model[4]*model[4]+model[5]*model[5]);
-            float ry = r * model[6] / sqrt(model[4]*model[4]+model[6]*model[6]);
-            float rotation = 90 - atan(model[6]/model[5]) * 180 / PI;
-            // std::cout << model[0] << " " << model[1] << " " << model[2] << " " << model[3] << " " 
-            //           << model[4] << " " << model[5] << " " << model[6] << std::endl;
-            // std::cout << "x: " << x1 << " y: " << y1 << " r: " << r << std::endl;
-            // std::cout << "rx: " << rx << " ry: " << ry << " rotation: " << rotation << std::endl;
-            cv::ellipse(image, cv::Point(x1, y1), cv::Size(rx, ry), 
-                        rotation, 0, 360, cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
-        }
+        // for (const auto& model : m_bestModelCoefficients) {
+        //     // origin(x,y,z) R normal(x,y,z)
+        //     float u = projection(model[1], model[0]);
+        //     float v = projection(model[2], model[0]);
+        //     float x1 = (u-min_u)/step;
+        //     float y1 = (v-min_v)/step;
+        //     float r = 1.414f * model[3]/step;
+        //     float rx = r * model[5] / sqrt(model[4]*model[4]+model[5]*model[5]);
+        //     float ry = r * model[6] / sqrt(model[4]*model[4]+model[6]*model[6]);
+        //     float rotation = 90 - atan(model[6]/model[5]) * 180 / PI;
+        //     // std::cout << model[0] << " " << model[1] << " " << model[2] << " " << model[3] << " " 
+        //     //           << model[4] << " " << model[5] << " " << model[6] << std::endl;
+        //     // std::cout << "x: " << x1 << " y: " << y1 << " r: " << r << std::endl;
+        //     // std::cout << "rx: " << rx << " ry: " << ry << " rotation: " << rotation << std::endl;
+        //     cv::ellipse(image, cv::Point(x1, y1), cv::Size(rx, ry), 
+        //                 rotation, 0, 360, cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
+        // }
 
     } else if (m_application == "sphere") {
-        for (const auto& model : m_bestModelCoefficients) {
-            // origin(x,y,z) R
-            float u = projection(model[1], model[0]);
-            float v = projection(model[2], model[0]);
-            float x1 = (u-min_u)/step;
-            float y1 = (v-min_v)/step;
-            float r = 1.414f * model[3]/step;
-            std::cout << model[0] << " " << model[1] << " " << model[2] << " " << model[3] << std::endl;
-            std::cout << "x: " << x1 << " y: " << y1 << " r: " << r << std::endl;   
-            cv::circle(image, cv::Point(x1, y1), r, cv::Scalar(0, 0, 255, 255), -1, cv::LINE_AA);
-        }
+        // for (const auto& model : m_bestModelCoefficients) {
+        //     // origin(x,y,z) R
+        //     float u = projection(model[1], model[0]);
+        //     float v = projection(model[2], model[0]);
+        //     float x1 = (u-min_u)/step;
+        //     float y1 = (v-min_v)/step;
+        //     float r = 1.414f * model[3]/step;
+        //     std::cout << model[0] << " " << model[1] << " " << model[2] << " " << model[3] << std::endl;
+        //     std::cout << "x: " << x1 << " y: " << y1 << " r: " << r << std::endl;   
+        //     cv::circle(image, cv::Point(x1, y1), r, cv::Scalar(0, 0, 255, 255), -1, cv::LINE_AA);
+        // }
 
     } else if (m_application == "cylinder") {
         std::cout << "Here is some bug..." << std::endl;
@@ -189,11 +192,11 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
     }
 
     // draw the x, y, and z axis
-    cv::line(image, cv::Point(0, height - 1), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
-    cv::line(image, cv::Point((width - 1)/3, 0), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
-    cv::line(image, cv::Point(width - 1, 2*(height - 1)/3), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    // cv::line(image, cv::Point(0, height - 1), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    // cv::line(image, cv::Point((width - 1)/3, 0), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
+    // cv::line(image, cv::Point(width - 1, 2*(height - 1)/3), cv::Point((width - 1)/3, 2*(height-1)/3), cv::Scalar(64, 64, 64, 255), 1, cv::LINE_AA);
 
-    for (const auto& point : points) {
+    for (const auto& point : projectedPoints) {
         int x = (point.x - min_u) / step;
         int y = (point.y - min_v) / step;
         cv::circle(image, cv::Point(x, y), 1, cv::Scalar(0, 0, 0), -1, cv::LINE_AA);

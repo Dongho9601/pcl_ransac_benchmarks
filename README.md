@@ -2,31 +2,21 @@
 
 ### Microbenchmarks
 
-- [x] 2D.pcd read and print
-- [x] 2D line fitting
+- [x] read and print 2D point cloud
+- [x] 2D line fitting with CPU
 - [x] organize the structure and build timer
-- [x] 2D circle fitting
+- [x] 2D circle fitting with CPU
 
 - [x] 2D line fitting with CUDA
 - [x] 2D circle fitting with CUDA
 - [x] make CUDA use shared memory - slower than global memory
 
 - [x] 3D read
-- [x] 3D project to 2D
-
 - [x] 3D line fitting
-- [x] 3D line draw
 - [x] 3D plane fitting
-- [x] 3D plane draw
 - [x] 3D circle fitting
-- [x] 3D circle draw
 - [x] 3D sphere fitting
-- [x] 3D sphere draw
-
-- [ ] revisit the projection algorithm
-
-- [ ] 3D cylinder fitting
-- [ ] 3D cylinder draw
+- [x] 3D cylinder fitting
 
 - [ ] 3D line fitting with CUDA
 - [ ] 3D plane fitting with CUDA
@@ -34,7 +24,8 @@
 - [ ] 3D sphere fitting with CUDA
 - [ ] 3D cylinder fitting with CUDA
 
-- [ ] Make the 3D image more visible
+- [ ] print 3D point cloud
+- [ ] debug 2D circle fitting
 
 ### Benchmarks
 

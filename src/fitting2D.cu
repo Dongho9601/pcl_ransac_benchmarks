@@ -12,21 +12,21 @@ void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int ma
     int firstPointIdx = warpIdx % pointsNum;
     int secondPointIdx = firstPointIdx + warpIdx / pointsNum + 1;
     if (secondPointIdx >= pointsNum)
-        secondPointIdx -= pointsNum;
+        secondPointIdx %= pointsNum;
 
-    float Ox = pointsArr[firstPointIdx * 2];
-    float Oy = pointsArr[firstPointIdx * 2 + 1];
-    float Rx = pointsArr[secondPointIdx * 2] - Ox;
-    float Ry = pointsArr[secondPointIdx * 2 + 1] - Oy;
+    float Ox = pointsArr[firstPointIdx * DIMENSION];
+    float Oy = pointsArr[firstPointIdx * DIMENSION + 1];
+    float Rx = pointsArr[secondPointIdx * DIMENSION] - Ox;
+    float Ry = pointsArr[secondPointIdx * DIMENSION + 1] - Oy;
 
     // each thread calculates the number of inliners and accumulates them at the end
     int counter = 0;
 #pragma unroll
     for (int i = 0; i < pointsNum / WARP_SIZE + 1; i++) {
-        int pointIdx = i * pointsNum / WARP_SIZE + laneIdx ;
+        int pointIdx = i * WARP_SIZE + laneIdx ;
         if (pointIdx >= pointsNum) break;
-        float Qx = pointsArr[pointIdx * 2];
-        float Qy = pointsArr[pointIdx * 2 + 1];
+        float Qx = pointsArr[pointIdx * DIMENSION];
+        float Qy = pointsArr[pointIdx * DIMENSION + 1];
         float distance = abs(Rx * (Qy - Oy) - Ry * (Qx - Ox)) / sqrt(Rx * Rx + Ry * Ry);
         if (distance < delta) {
             counter++;
@@ -38,9 +38,8 @@ void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int ma
         counter += __shfl_down_sync(0xffffffff, counter, i);
     
     // write the inliner counts to the global memory
-    if (laneIdx == 0) {
+    if (laneIdx == 0)
         inlinerCounts[warpIdx] = counter;
-    }
 }
 
 __global__ 
@@ -51,24 +50,25 @@ void circleFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int 
     int firstPointIdx = warpIdx % pointsNum;
     int secondPointIdx = firstPointIdx + warpIdx / pointsNum + 1;
     if (secondPointIdx >= pointsNum)
-        secondPointIdx -= pointsNum;
-    int thridPointIdx = secondPointIdx + 1;
+        secondPointIdx %= pointsNum;
+    int thridPointIdx = secondPointIdx + warpIdx / pointsNum + 1;
     if (thridPointIdx >= pointsNum)
-        thridPointIdx -= pointsNum;
+        thridPointIdx %= pointsNum;
 
     // calculate the center of the circle
-    float Ox = (pointsArr[firstPointIdx * 2] + pointsArr[secondPointIdx * 2] + pointsArr[thridPointIdx * 2]) / 3;
-    float Oy = (pointsArr[firstPointIdx * 2 + 1] + pointsArr[secondPointIdx * 2 + 1] + pointsArr[thridPointIdx * 2 + 1]) / 3;
-    float R = sqrt((pointsArr[firstPointIdx * 2] - Ox) * (pointsArr[firstPointIdx * 2] - Ox) + (pointsArr[firstPointIdx * 2 + 1] - Oy) * (pointsArr[firstPointIdx * 2 + 1] - Oy));
+    float Ox = (pointsArr[firstPointIdx * DIMENSION] + pointsArr[secondPointIdx * DIMENSION] + pointsArr[thridPointIdx * DIMENSION]) / 3;
+    float Oy = (pointsArr[firstPointIdx * DIMENSION + 1] + pointsArr[secondPointIdx * DIMENSION + 1] + pointsArr[thridPointIdx * DIMENSION + 1]) / 3;
+    float R = sqrt((pointsArr[firstPointIdx * DIMENSION] - Ox) * (pointsArr[firstPointIdx * DIMENSION] - Ox) 
+                   + (pointsArr[firstPointIdx * DIMENSION + 1] - Oy) * (pointsArr[firstPointIdx * DIMENSION + 1] - Oy));
 
     // each thread calculates the number of inliners and accumulates them at the end
     int counter = 0;
 #pragma unroll
     for (int i = 0; i < pointsNum / WARP_SIZE + 1; i++) {
-        int pointIdx = i * pointsNum / WARP_SIZE + laneIdx ;
+        int pointIdx = i * WARP_SIZE + laneIdx;
         if (pointIdx >= pointsNum) break;
-        float Qx = pointsArr[pointIdx * 2];
-        float Qy = pointsArr[pointIdx * 2 + 1];
+        float Qx = pointsArr[pointIdx * DIMENSION];
+        float Qy = pointsArr[pointIdx * DIMENSION + 1];
         float distance = abs(sqrt((Qx - Ox) * (Qx - Ox) + (Qy - Oy) * (Qy - Oy)) - R);
         if (distance < delta) {
             counter++;
@@ -80,18 +80,17 @@ void circleFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int 
         counter += __shfl_down_sync(0xffffffff, counter, i);
     
     // write the inliner counts to the global memory
-    if (laneIdx == 0) {
+    if (laneIdx == 0)
         inlinerCounts[warpIdx] = counter;
-    }
 
 }
 
 void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
     // point to array
-    float* pointsArr = new float[cloudCopy->points.size() * 2];
+    float* pointsArr = new float[cloudCopy->points.size() * DIMENSION];
     for (int i = 0; i < cloudCopy->points.size(); i++) {
-        pointsArr[2*i] = (float)cloudCopy->points[i].x;
-        pointsArr[2*i + 1] = (float)cloudCopy->points[i].y;
+        pointsArr[DIMENSION * i] = (float)cloudCopy->points[i].x;
+        pointsArr[DIMENSION * i + 1] = (float)cloudCopy->points[i].y;
     }
 
     // shuffle the pointsArr with std::suffle
@@ -109,8 +108,8 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
 
     // upload the pointsArr to GPUs
     float* pointsArr_d;
-    cudaMalloc((void**)&pointsArr_d, cloudCopy->points.size() * 2 * sizeof(float));
-    cudaMemcpy(pointsArr_d, pointsArr, cloudCopy->points.size() * 2 * sizeof(float), cudaMemcpyHostToDevice);
+    cudaMalloc((void**)&pointsArr_d, cloudCopy->points.size() * DIMENSION * sizeof(float));
+    cudaMemcpy(pointsArr_d, pointsArr, cloudCopy->points.size() * DIMENSION * sizeof(float), cudaMemcpyHostToDevice);
 
     // setup inliner counts
     int* inlinerCounts = new int[m_maxIterations];
@@ -142,17 +141,17 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         }
 
         // probability of success
-        float p = m_threshold;
-        float w = (float)inlinerCounts[i] / (float)m_maxIterations;
-        float N = log(1 - p) / log(1 - pow(w, m_numRequiredPoints));
-        if (N < m_maxIterations) {
-            m_maxIterations = (int) N;
-        }
+        // float p = m_threshold;
+        // float w = (float)inlinerCounts[i] / (float)m_maxIterations;
+        // float N = log(1 - p) / log(1 - pow(w, m_numRequiredPoints));
+        // if (N < m_maxIterations) {
+        //     m_maxIterations = (int) N;
+        // }
     }
 
     // print the best model
-    // std::cout << "best model: " << bestModelIdx << std::endl;
-    // std::cout << "best model inliner count: " << bestModelInlinerCount << std::endl;
+    std::cout << "best model: " << bestModelIdx << std::endl;
+    std::cout << "best model inliner count: " << bestModelInlinerCount << std::endl;
 
     // print the coordinates of the best model
     if (m_application == "line") {
@@ -161,10 +160,10 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         if (secondPointIdx >= cloudCopy->points.size()) {
             secondPointIdx -= cloudCopy->points.size();
         }
-        float Ox = pointsArr[firstPointIdx * 2];
-        float Oy = pointsArr[firstPointIdx * 2 + 1];
-        float Rx = pointsArr[secondPointIdx * 2] - Ox;
-        float Ry = pointsArr[secondPointIdx * 2 + 1] - Oy;
+        float Ox = pointsArr[firstPointIdx * DIMENSION];
+        float Oy = pointsArr[firstPointIdx * DIMENSION + 1];
+        float Rx = pointsArr[secondPointIdx * DIMENSION] - Ox;
+        float Ry = pointsArr[secondPointIdx * DIMENSION + 1] - Oy;
 
         Eigen::VectorXf model_(6);
         model_ << Ox, Oy, 0, Rx, Ry, 0;
@@ -180,9 +179,10 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
         if (thridPointIdx >= cloudCopy->points.size()) {
             thridPointIdx -= cloudCopy->points.size();
         }
-        float Ox = (pointsArr[firstPointIdx * 2] + pointsArr[secondPointIdx * 2] + pointsArr[thridPointIdx * 2]) / 3;
-        float Oy = (pointsArr[firstPointIdx * 2 + 1] + pointsArr[secondPointIdx * 2 + 1] + pointsArr[thridPointIdx * 2 + 1]) / 3;
-        float R = sqrt((pointsArr[firstPointIdx * 2] - Ox) * (pointsArr[firstPointIdx * 2] - Ox) + (pointsArr[firstPointIdx * 2 + 1] - Oy) * (pointsArr[firstPointIdx * 2 + 1] - Oy));
+        float Ox = (pointsArr[firstPointIdx * DIMENSION] + pointsArr[secondPointIdx * DIMENSION] + pointsArr[thridPointIdx * DIMENSION]) / 3;
+        float Oy = (pointsArr[firstPointIdx * DIMENSION + 1] + pointsArr[secondPointIdx * DIMENSION + 1] + pointsArr[thridPointIdx * DIMENSION + 1]) / 3;
+        float R = sqrt((pointsArr[firstPointIdx * DIMENSION] - Ox) * (pointsArr[firstPointIdx * DIMENSION] - Ox) 
+                  + (pointsArr[firstPointIdx * DIMENSION + 1] - Oy) * (pointsArr[firstPointIdx * DIMENSION + 1] - Oy));
 
         Eigen::VectorXf model_(3);
         model_ << Ox, Oy, R;

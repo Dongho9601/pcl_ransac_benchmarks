@@ -12,6 +12,9 @@
 #define BLOCK_SIZE 32 * 8
 #define WARP_PER_BLOCK 8
 
+#define DIMENSION 2
+#define PI 3.141592f
+
 class Fitter2D {
     public:
         Fitter2D(){};

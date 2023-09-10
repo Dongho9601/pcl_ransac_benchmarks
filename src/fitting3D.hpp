@@ -15,6 +15,7 @@
 #define BLOCK_SIZE 32 * 8
 #define WARP_PER_BLOCK 8
 
+#define DIMENSION 3
 #define PI 3.141592f
 
 class Fitter3D {
