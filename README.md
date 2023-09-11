@@ -18,14 +18,17 @@
 - [x] 3D sphere fitting
 - [x] 3D cylinder fitting
 
-- [ ] 3D line fitting with CUDA
-- [ ] 3D plane fitting with CUDA
-- [ ] 3D circle fitting with CUDA
-- [ ] 3D sphere fitting with CUDA
-- [ ] 3D cylinder fitting with CUDA
+- [x] 3D line fitting with CUDA
+- [x] 3D plane fitting with CUDA
+- [x] 3D circle fitting with CUDA
+- [x] 3D sphere fitting with CUDA
 
 - [ ] print 3D point cloud
+
 - [ ] debug 2D circle fitting
+- [ ] model generation in CPUs for CUDA?
+
+- [ ] 3D cylinder fitting with CUDA
 
 ### Benchmarks
 

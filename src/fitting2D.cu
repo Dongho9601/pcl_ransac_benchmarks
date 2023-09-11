@@ -1,7 +1,7 @@
 #include "fitting2D.hpp"
 
 __global__ 
-void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int maxIterations, float delta) {
+void lineFitting2DCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int maxIterations, float delta) {
     // warps are models, so threads search the points divided by 32
     int warpIdx = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
     int laneIdx = threadIdx.x % WARP_SIZE;
@@ -43,7 +43,7 @@ void lineFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int ma
 }
 
 __global__ 
-void circleFittingCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int maxIterations, float delta) {
+void circleFitting2DCUDA(float* pointsArr, int* inlinerCounts, int pointsNum, int maxIterations, float delta) {
     int warpIdx = (blockIdx.x * blockDim.x + threadIdx.x) / WARP_SIZE;
     int laneIdx = (blockIdx.x * blockDim.x + threadIdx.x) % WARP_SIZE;
 
@@ -122,10 +122,10 @@ void Fitter2D::runFittingWithCUDA(PointCloudPtr& cloudCopy) {
     // warp numbers are model numbers
     // thread block size is 256, fixed = 8 warps
     if (m_application == "line") {
-        lineFittingCUDA<<<m_maxIterations / WARP_PER_BLOCK, BLOCK_SIZE>>>(pointsArr_d, inlinerCounts_d, cloudCopy->points.size(), m_maxIterations, m_delta);
+        lineFitting2DCUDA<<<m_maxIterations / WARP_PER_BLOCK, BLOCK_SIZE>>>(pointsArr_d, inlinerCounts_d, cloudCopy->points.size(), m_maxIterations, m_delta);
     }
     else if (m_application == "circle") {
-        circleFittingCUDA<<<m_maxIterations / WARP_PER_BLOCK, BLOCK_SIZE>>>(pointsArr_d, inlinerCounts_d, cloudCopy->points.size(), m_maxIterations, m_delta);
+        circleFitting2DCUDA<<<m_maxIterations / WARP_PER_BLOCK, BLOCK_SIZE>>>(pointsArr_d, inlinerCounts_d, cloudCopy->points.size(), m_maxIterations, m_delta);
     }
 
     // download the inliner counts

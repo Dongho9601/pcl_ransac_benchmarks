@@ -12,10 +12,16 @@ void Fitter3D::runFitting(PointCloudPtr& cloudCopy, modelType& model) {
     ransac.getModelCoefficients(modelCoefficients);
     getBestModelCoefficients(modelCoefficients);
 
-    // remove inliners
-    if (m_remainingPointsRatio == 1) return;
+    // print the number of inliners
+    // HADO: for debugging
     pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
     ransac.getInliers(inliers->indices);
+    std::cout << "inliners: " << inliers->indices.size() << std::endl;
+
+    // remove inliners
+    if (m_remainingPointsRatio == 1) return;
+    // pcl::PointIndices::Ptr inliers(new pcl::PointIndices);
+    // ransac.getInliers(inliers->indices);
     pcl::ExtractIndices<PointCloudType> extract;
     extract.setInputCloud(cloudCopy);
     extract.setIndices(inliers);
@@ -122,8 +128,8 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
             x2 = (x2/z2 - min_u) / step;
             y2 = (y2/z2 - min_v) / step;
             // projection
-            std::cout << "x1: " << x1 << " y1: " << y1 << std::endl;
-            std::cout << "x2: " << x2 << " y2: " << y2 << std::endl;
+            // std::cout << "x1: " << x1 << " y1: " << y1 << std::endl;
+            // std::cout << "x2: " << x2 << " y2: " << y2 << std::endl;
             cv::line(image, cv::Point( x1,y1 ), cv::Point( x2,y2 ), cv::Scalar(0, 0, 255, 255), 1, cv::LINE_AA);
         }
 
@@ -132,7 +138,7 @@ cv::Mat Fitter3D::draw3DImage(const PointCloudPtr& cloud,
             // top bottom left right
             cv::Point2f p1(0,1000.0f), p2(0,-1000.0f) , p3(1000.0f,0), p4(-1000.0f,0);
             for (const auto& point : cloud->points) {
-                if (model[0]*point.x + model[1]*point.y + model[2]*point.z + model[3] > m_delta) continue;
+                if (abs(model[0]*point.x + model[1]*point.y + model[2]*point.z + model[3]) > m_delta) continue;
                 float u = point.x / point.z;
                 float v = point.y / point.z;
                 if (v < p1.y) p1 = cv::Point2f(u, v); 
